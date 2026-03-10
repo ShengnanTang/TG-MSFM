@@ -1,0 +1,76 @@
+model:
+  target: Models.interpretable_diffusion.FMTS.FM_TS
+  params:
+    seq_length: 128
+    feature_size: 24       
+    n_layer_enc: 3
+    n_layer_dec: 2
+    d_model: 64
+    n_heads: 4
+    mlp_hidden_times: 4
+    attn_pd: 0.0
+    resid_pd: 0.0
+    kernel_size: 1
+    padding_size: 0
+
+solver:
+  base_lr: 2.0e-4
+  #max_epochs: 100000
+  max_epochs: 100000
+  gradient_accumulate_every: 1   
+  save_cycle: 20000               
+  ema:
+    decay: 0.995
+    update_interval: 10
+
+dataloader:
+  # ---------------------- MRCA ----------------------
+  train_dataset:
+    target: Utils.Data_utils.real_datasets.CustomDataset
+    params:
+      name: weather
+      data_root: ./Data/datasets/exchange.csv
+      window: 128
+      proportion: 0.8
+      period: train
+      save2npy: True
+      neg_one_to_one: True
+      seed: 123
+
+      # === 训练期：与评测“对齐”的随机比例 + 几何段 ===
+      return_mask: True             # ★ 开启 C1 训练（返回 (x, mask)）
+      style: separate               # 每个变量独立缺失
+      distribution: geometric       # 段状缺失（更贴近真实）
+      mean_mask_length: 1           # 几何段均值（8~16 可网格）
+      train_mask_random_ratios: [0.1, 0.3, 0.5, 0.7]  # ★ 与评测缺失率池一致
+      train_mask_prob_concurrent: 0.1                 # 10% 概率并发 blackout
+      long_gap: False               # ★ 常规实验不造长缺口（保持 False）
+      apply_prob: 0.0               # 显式关掉（避免误触）
+
+  # ---------------------- 测试集（固定中心长缺口） ----------------------
+  test_dataset:
+    target: Utils.Data_utils.real_datasets.CustomDataset
+    params:
+      name: weather
+      data_root: ./Data/datasets/exchange.csv
+      window: 128
+      proportion: 0.2
+      period: test
+      save2npy: True
+      neg_one_to_one: True
+      seed: 999
+      style: separate
+      distribution: geometric
+
+      long_gap: True
+      gap_len: 50                  # 128 窗口里放 50 点中心缺口
+      apply_prob: 1.0
+      return_mask: True
+
+    coefficient: 1.0e-2
+    step_size: 5.0e-2
+    sampling_steps: 200
+
+  batch_size: 16                  # ★ 你的 V100-32G 很富余，直接拉高吞吐
+  sample_size: 64
+  shuffle: True

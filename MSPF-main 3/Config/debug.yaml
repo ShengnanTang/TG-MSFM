@@ -1,0 +1,71 @@
+model:
+  target: Models.interpretable_diffusion.FMTS.FM_TS
+  params:
+    seq_length: 24            # 每个序列窗口长度
+    feature_size: 28          # 使用的特征数
+    n_layer_enc: 2
+    n_layer_dec: 2
+    d_model: 64
+    n_heads: 4
+    mlp_hidden_times: 4
+    attn_pd: 0.1
+    resid_pd: 0.1
+    kernel_size: 1
+    padding_size: 0
+
+solver:
+  base_lr: 1.0e-3
+  max_epochs: 500              # 训练..轮
+  gradient_accumulate_every: 1
+  save_cycle: 5
+  results_folder: ./Checkpoints_debug
+  ema:
+    decay: 0.99
+    update_interval: 1
+
+  scheduler:
+    target: Utils.scheduler.cosine_lr_scheduler.CosineLRScheduler
+    params:
+      t_initial: 5
+      lr_min: 1.0e-4
+      warmup_t: 1
+      warmup_lr_init: 1.0e-4
+      t_in_epochs: true
+
+dataloader:
+  batch_size: 8
+  shuffle: true
+  sample_size: 8
+
+  train_dataset:
+    target: Utils.Data_utils.real_datasets.CustomDataset
+    params:
+      name: test
+      data_root: Data/datasets/test_data.csv
+      window: 24
+      output_dir: ./Checkpoints_debug
+      period: train
+      neg_one_to_one: True
+      proportion: 1.0  # Set to rate < 1 if training conditional generation
+
+
+  test_dataset:
+    target: Utils.Data_utils.real_datasets.CustomDataset
+    params:
+      name: test
+      data_root: Data/datasets/test_data.csv
+      window: 24
+      output_dir: ./Checkpoints_debug
+      period: test
+      missing_ratio: 0.3
+      predict_length: 0
+      neg_one_to_one: True
+      proportion: 0.9  # Set to rate < 1 if training conditional generation
+    sampling_steps: 200
+      
+
+scheduler:
+  target: torch.optim.lr_scheduler.StepLR
+  params:
+    step_size: 2
+    gamma: 0.9
