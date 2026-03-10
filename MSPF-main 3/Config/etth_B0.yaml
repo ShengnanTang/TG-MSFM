@@ -1,0 +1,72 @@
+model:
+  target: Models.interpretable_diffusion.FMTS.FM_TS
+  params:
+    seq_length: 64          # ★ 窗口长度改够大，否则放不下 1 000 缺口
+    feature_size: 7
+    n_layer_enc: 3
+    n_layer_dec: 2
+    d_model: 64
+    n_heads: 4
+    mlp_hidden_times: 4
+    attn_pd: 0.0
+    resid_pd: 0.0
+    kernel_size: 1
+    padding_size: 0
+
+solver:
+  base_lr: 1.0e-4
+  max_epochs: 100000
+  gradient_accumulate_every: 4
+  save_cycle: 100
+  ema:
+    decay: 0.995
+    update_interval: 10
+
+dataloader:
+  # ---------------------- 训练集 ----------------------
+  train_dataset:
+    target: Utils.Data_utils.real_datasets.CustomDataset
+    params:
+      name: etth
+      data_root: ./Data/datasets/ETTh.csv
+      window: 64
+      proportion: 0.8          # 8 成样本用于训练
+      period: train
+      save2npy: True
+      neg_one_to_one: True
+      seed: 123
+      # >>> 缺口插值新增字段
+      long_gap: False           # 开启连续缺口
+      gap_len: 1000            # 缺口长度固定 1 000
+      apply_prob: 1.0          # 每条样本都插入缺口
+      return_mask: False        # 训练返回 (seq, mask)
+      # <<< -------------------
+
+  # ---------------------- 测试集 ----------------------
+  test_dataset:
+    target: Utils.Data_utils.real_datasets.CustomDataset
+    params:
+      name: etth
+      data_root: ./Data/datasets/ETTh.csv
+      window: 64
+      proportion: 0.2
+      period: test
+      save2npy: True
+      neg_one_to_one: True
+      seed: 999
+      style: separate
+      distribution: geometric
+      # >>> 插值评测用同样缺口
+      long_gap: True
+      gap_len: 40
+      apply_prob: 1.0
+      return_mask: True
+      # <<< -------------------
+    coefficient: 1.0e-2
+    step_size: 5.0e-2
+    sampling_steps: 200
+
+  batch_size: 64
+  # >>> 32 for training
+  sample_size: 64
+  shuffle: True
